@@ -490,9 +490,92 @@ tbody tr:hover { background: #fafbff; }
   justify-content: center; border: 2px solid #fff;
 }
 .chat-fab-wrap { position: relative; display: inline-block; }
+
+/* ── LOGIN SCREEN ── */
+#login-screen {
+  position: fixed; inset: 0; z-index: 9999;
+  background: linear-gradient(135deg, #0d1117 0%, #1a2236 50%, #0d1117 100%);
+  display: flex; align-items: center; justify-content: center;
+}
+#login-screen.hidden { display: none; }
+.login-box {
+  background: #13161e; border: 1px solid #252a38; border-radius: 16px;
+  padding: 40px 36px; width: 100%; max-width: 380px;
+  box-shadow: 0 24px 60px rgba(0,0,0,0.5);
+}
+.login-logo { text-align: center; margin-bottom: 28px; }
+.login-logo img { width: 72px; height: 72px; border-radius: 14px; object-fit: contain; }
+.login-title { font-family:'Space Grotesk',sans-serif; font-size: 18px; font-weight: 700; color: #e8eaf0; margin-top: 12px; }
+.login-sub { font-size: 12px; color: #4a5068; margin-top: 3px; }
+.login-field { margin-bottom: 14px; }
+.login-field label { display: block; font-size: 11.5px; font-weight: 600; color: #7a8099; margin-bottom: 5px; }
+.login-field input {
+  width: 100%; padding: 10px 14px; border-radius: 9px;
+  background: #1f2435; border: 1px solid #252a38;
+  font-family: 'Inter',sans-serif; font-size: 14px; color: #e8eaf0;
+  outline: none; transition: border-color 0.15s; box-sizing: border-box;
+}
+.login-field input:focus { border-color: #4f8ef7; box-shadow: 0 0 0 3px rgba(79,142,247,0.12); }
+.login-btn {
+  width: 100%; padding: 11px; border-radius: 9px; border: none;
+  background: linear-gradient(135deg, #2563eb, #7c3aed);
+  color: #fff; font-size: 14px; font-weight: 700;
+  font-family: 'Inter',sans-serif; cursor: pointer; margin-top: 6px;
+  transition: opacity 0.15s;
+}
+.login-btn:hover { opacity: 0.9; }
+.login-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.login-error {
+  background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px;
+  padding: 9px 14px; font-size: 12.5px; color: #b91c1c; font-weight: 600;
+  margin-bottom: 14px; display: none; text-align: center;
+}
+.session-warning {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 8000;
+  background: #fef3c7; border-bottom: 2px solid #fcd34d;
+  padding: 9px 24px; font-size: 12.5px; font-weight: 600; color: #92400e;
+  display: none; align-items: center; justify-content: space-between;
+}
+.role-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 2px 8px; border-radius: 20px; font-size: 10px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.5px;
+}
+.role-admin { background: rgba(124,58,237,0.2); color: #a78bfa; }
+.role-empleado { background: rgba(79,142,247,0.15); color: #60a5fa; }
 </style>
 </head>
 <body>
+
+<!-- ── SESIÓN EXPIRADA AVISO ── -->
+<div class="session-warning" id="session-warning">
+  <span>⚠️ Tu sesión expirará en <strong id="session-countdown">5:00</strong> min por inactividad.</span>
+  <button onclick="renovarSesion()" style="background:#d97706;color:#fff;border:none;padding:5px 14px;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;">Continuar sesión</button>
+</div>
+
+<!-- ── LOGIN SCREEN ── -->
+<div id="login-screen">
+  <div class="login-box">
+    <div class="login-logo">
+      <img id="login-logo-img" src="" alt="Logo" onerror="this.style.display='none'">
+      <div class="login-title">Despacho Contable<br>"Herrera"</div>
+      <div class="login-sub">Sistema de Gestión Interno</div>
+    </div>
+    <div class="login-error" id="login-error">Usuario o contraseña incorrectos</div>
+    <div class="login-field">
+      <label>Usuario</label>
+      <input type="text" id="login-user" placeholder="Ingresa tu usuario" autocomplete="username" onkeydown="if(event.key==='Enter')doLogin()">
+    </div>
+    <div class="login-field">
+      <label>Contraseña</label>
+      <input type="password" id="login-pass" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
+    </div>
+    <button class="login-btn" id="login-btn" onclick="doLogin()">Iniciar sesión</button>
+    <div style="margin-top:20px;padding-top:16px;border-top:1px solid #252a38;font-size:11px;color:#4a5068;text-align:center;">
+      🔒 Acceso restringido — Despacho Contable Herrera
+    </div>
+  </div>
+</div>
 
 <!-- SIDEBAR -->
 <aside class="sidebar">
@@ -524,12 +607,15 @@ tbody tr:hover { background: #fafbff; }
   </nav>
   <div class="sidebar-bottom">
     <div class="sidebar-user">
-      <div class="sidebar-avatar">H</div>
-      <div>
-        <div class="sidebar-uname">C.P. Herrera</div>
-        <div class="sidebar-urole">Administrador</div>
+      <div class="sidebar-avatar" id="sb-avatar">H</div>
+      <div style="flex:1;">
+        <div class="sidebar-uname" id="sb-nombre">—</div>
+        <div id="sb-role-badge"></div>
       </div>
     </div>
+    <button onclick="cerrarSesion()" style="margin-top:10px;width:100%;padding:7px;border-radius:8px;background:rgba(240,92,92,0.12);border:1px solid rgba(240,92,92,0.25);color:#f05c5c;font-size:12px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif;transition:all 0.15s;" onmouseover="this.style.background='rgba(240,92,92,0.22)'" onmouseout="this.style.background='rgba(240,92,92,0.12)'">
+      ⏻ Cerrar sesión
+    </button>
   </div>
 </aside>
 
@@ -778,8 +864,6 @@ tbody tr:hover { background: #fafbff; }
           <div class="ftab" onclick="setExtraFilter('Declaración',this)">Declaraciones</div>
           <div class="ftab" onclick="setExtraFilter('Trámite',this)">Trámites</div>
           <div class="ftab" onclick="setExtraFilter('Asesoría',this)">Asesorías</div>
-          <div class="ftab" onclick="setExtraFilter('Factura',this)">Facturas</div>
-          <div class="ftab" onclick="setExtraFilter('pendiente',this)" style="color:var(--yellow);border-color:var(--yellow)">⚠ Pendientes</div>
         </div>
       </div>
       <div class="table-wrap">
@@ -792,7 +876,6 @@ tbody tr:hover { background: #fafbff; }
               <th>Descripción</th>
               <th>Fecha</th>
               <th>Monto</th>
-              <th>Estado</th>
               <th></th>
             </tr>
           </thead>
@@ -1066,12 +1149,11 @@ tbody tr:hover { background: #fafbff; }
             <option>Declaración</option>
             <option>Trámite</option>
             <option>Asesoría</option>
-            <option>Factura</option>
             <option>Otro</option>
           </select>
         </div>
         <div class="form-group">
-          <label class="form-label">Monto ($) *</label>
+          <label class="form-label">Monto cobrado ($) *</label>
           <input class="form-input" id="ex-monto" type="number" placeholder="1500">
         </div>
         <div class="form-group full">
@@ -1081,13 +1163,6 @@ tbody tr:hover { background: #fafbff; }
         <div class="form-group">
           <label class="form-label">Fecha</label>
           <input class="form-input" id="ex-fecha" type="date">
-        </div>
-        <div class="form-group">
-          <label class="form-label">Estado del pago</label>
-          <select class="form-select" id="ex-estado">
-            <option value="pagado">✅ Pagado</option>
-            <option value="pendiente">⚠️ Pendiente de cobro</option>
-          </select>
         </div>
       </div>
     </div>
@@ -1240,7 +1315,7 @@ tbody tr:hover { background: #fafbff; }
 //  SUPABASE — Despacho Contable Herrera
 // ══════════════════════════════════════════
 const SB_URL = 'https://twppflynayfjqvqphazo.supabase.co';
-const SB_KEY = 'sb_publishable_8RI_jyRifVUyZFkqSDa0KQ_ewdIvFIZ';
+const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR3cHBmbHluYXlmanF2cXBoYXpvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQxMzE2ODIsImV4cCI6MjA5OTcwNzY4Mn0.abKzHnx4e9-TQcJNV6uEGGouyJIfGQyMYlH6lvuhMDE';
 
 async function sbReq(path, opts = {}) {
   const res = await fetch(`${SB_URL}/rest/v1/${path}`, {
@@ -1337,7 +1412,6 @@ function extraToRow(x) {
     descripcion: x.descripcion || null,
     monto:       x.monto,
     fecha:       x.fecha || null,
-    estado:      x.estado || 'pagado',
   };
 }
 
@@ -1370,8 +1444,7 @@ async function loadData() {
     extras   = (eRows || []).map(r => ({
       id: r.id, nombre: r.nombre, telefono: r.telefono || '',
       email: r.email || '', tipo: r.tipo || '', descripcion: r.descripcion || '',
-      monto: parseFloat(r.monto) || 0, fecha: r.fecha || '',
-      estado: r.estado || 'pagado'
+      monto: parseFloat(r.monto) || 0, fecha: r.fecha || ''
     }));
     showSync('Datos cargados ✓', true);
   } catch (e) {
@@ -1736,6 +1809,7 @@ async function saveCliente() {
   showSync('Guardando...');
   try { await sbUpsertCliente(cliente); showSync('Guardado ✓', true); }
   catch (e) { console.error(e); showSync('Error al guardar', true); }
+  registrarActividad('cliente', `${editingId ? 'Editó' : 'Agregó'} cliente: ${cliente.nombre}`);
   closeModal('modal-cliente');
   renderDashboard(); renderClientes(); renderCobranza();
 }
@@ -1851,6 +1925,7 @@ function cancelarDelete() {
 }
 
 async function ejecutarDeleteCliente() {
+  if (!puedeEliminar()) { cancelarDelete(); return; }
   const id = currentDetailId;
   clientes = clientes.filter(c => c.id !== id);
   saveData();
@@ -2026,7 +2101,6 @@ function openAddExtra() {
   ['ex-nombre','ex-telefono','ex-email','ex-descripcion','ex-monto'].forEach(id => document.getElementById(id).value = '');
   document.getElementById('ex-tipo').value = 'Declaración';
   document.getElementById('ex-fecha').value = new Date().toISOString().slice(0,10);
-  document.getElementById('ex-estado').value = 'pagado';
   openModal('modal-extra');
 }
 
@@ -2042,7 +2116,6 @@ function openEditExtra(id) {
   document.getElementById('ex-monto').value = ex.monto;
   document.getElementById('ex-descripcion').value = ex.descripcion||'';
   document.getElementById('ex-fecha').value = ex.fecha;
-  document.getElementById('ex-estado').value = ex.estado || 'pagado';
   openModal('modal-extra');
 }
 
@@ -2060,7 +2133,6 @@ async function saveExtra() {
     monto,
     descripcion: document.getElementById('ex-descripcion').value.trim(),
     fecha:       document.getElementById('ex-fecha').value || new Date().toISOString().slice(0, 10),
-    estado:      document.getElementById('ex-estado').value || 'pagado',
   };
 
   let extra;
@@ -2102,67 +2174,40 @@ function setExtraFilter(f, el) {
 function renderExtras() {
   const q = (document.getElementById('search-extras').value||'').toLowerCase();
   let list = extras.filter(x => {
-    const match = x.nombre.toLowerCase().includes(q) || (x.tipo||'').toLowerCase().includes(q) || (x.descripcion||'').toLowerCase().includes(q);
+    const match = x.nombre.toLowerCase().includes(q) || x.tipo.toLowerCase().includes(q) || (x.descripcion||'').toLowerCase().includes(q);
     if(!match) return false;
-    if(extraFilterStatus === 'pendiente') return x.estado === 'pendiente';
-    if(extraFilterStatus !== 'todos') return x.tipo === extraFilterStatus;
+    if(extraFilterStatus!=='todos') return x.tipo === extraFilterStatus;
     return true;
   }).sort((a,b) => (b.fecha||'').localeCompare(a.fecha||''));
 
-  // KPIs — only count pagados for revenue
-  const totalCobrado = extras.filter(x => x.estado !== 'pendiente').reduce((s,x)=>s+x.monto,0);
-  const totalPendiente = extras.filter(x => x.estado === 'pendiente').reduce((s,x)=>s+x.monto,0);
-  document.getElementById('ex-total').textContent = fmt(totalCobrado);
+  const totalAll = extras.reduce((s,x)=>s+x.monto,0);
+  document.getElementById('ex-total').textContent = fmt(totalAll);
   document.getElementById('ex-count').textContent = extras.length;
 
   const thisMonth = new Date().toISOString().slice(0,7);
   const esteMes = extras.filter(x => (x.fecha||'').startsWith(thisMonth));
-  const esteMesTotal = esteMes.filter(x=>x.estado!=='pendiente').reduce((s,x)=>s+x.monto,0);
+  const esteMesTotal = esteMes.reduce((s,x)=>s+x.monto,0);
   document.getElementById('ex-mes').textContent = fmt(esteMesTotal);
   document.getElementById('ex-mes-sub').textContent = esteMes.length + ' servicio' + (esteMes.length!==1?'s':'') + ' este mes';
 
-  // Update KPI subtitles with pending info
-  const pendientesCount = extras.filter(x=>x.estado==='pendiente').length;
-  const kpiSub = document.querySelector('#ex-total + .kpi-sub') || document.getElementById('ex-total')?.parentElement?.querySelector('.kpi-sub');
-
   const tbody = document.getElementById('tabla-extras');
   if(list.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state"><div class="empty-state-icon">📄</div><div class="empty-state-title">Sin servicios en esta categoría</div><div class="empty-state-desc">Registra declaraciones, trámites, facturas o asesorías con el botón de arriba</div></div></td></tr>`;
+    tbody.innerHTML = '<tr><td colspan="7"><div class="empty-state"><div class="empty-state-icon">📄</div><div class="empty-state-title">Sin servicios registrados</div><div class="empty-state-desc">Registra declaraciones, trámites o asesorías con el botón de arriba</div></div></td></tr>';
     return;
   }
-  tbody.innerHTML = list.map(x => {
-    const isPendiente = x.estado === 'pendiente';
-    const estadoBadge = isPendiente
-      ? `<span class="badge badge-yellow"><span class="badge-dot"></span>Pendiente</span>`
-      : `<span class="badge badge-green"><span class="badge-dot"></span>Pagado</span>`;
-    return `
-    <tr style="${isPendiente?'background:#fffbeb;':''}">
+  tbody.innerHTML = list.map(x => `
+    <tr>
       <td class="td-name">${x.nombre}</td>
       <td><div class="td-contact">${x.telefono||'—'}</div><div class="td-contact">${x.email||'—'}</div></td>
       <td><span class="extra-type-pill">${x.tipo}</span></td>
       <td class="td-contact">${x.descripcion||'—'}</td>
       <td class="td-contact">${x.fecha ? new Date(x.fecha+'T12:00:00').toLocaleDateString('es-MX',{day:'numeric',month:'short',year:'numeric'}) : '—'}</td>
-      <td class="td-amount" style="color:${isPendiente?'var(--yellow)':'var(--green)'}">${fmt(x.monto)}</td>
-      <td>${estadoBadge}</td>
-      <td style="display:flex;gap:6px;flex-wrap:wrap;">
-        ${isPendiente ? `<button class="btn btn-success btn-sm" onclick="marcarExtraPagado('${x.id}')">Cobrar</button>` : ''}
+      <td class="td-amount" style="color:var(--green)">${fmt(x.monto)}</td>
+      <td style="display:flex;gap:6px;">
         <button class="btn btn-outline btn-sm" onclick="openEditExtra('${x.id}')">Editar</button>
         <button class="btn btn-danger btn-sm" onclick="deleteExtra('${x.id}')">Eliminar</button>
       </td>
-    </tr>`;
-  }).join('');
-}
-
-async function marcarExtraPagado(id) {
-  const x = extras.find(e => e.id === id);
-  if (!x) return;
-  x.estado = 'pagado';
-  saveExtrasData();
-  showSync('Guardando...');
-  try { await sbUpsertExtra(x); showSync('Cobrado ✓', true); }
-  catch (e) { console.error(e); }
-  renderExtras();
-  toast('Servicio marcado como pagado ✓');
+    </tr>`).join('');
 }
 
 // ── WHATSAPP ──
@@ -2357,10 +2402,172 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 });
 
+// ══════════════════════════════════════════
+//  SEGURIDAD — Login, Sesión, Roles
+// ══════════════════════════════════════════
+
+// Usuarios del sistema — puedes añadir más aquí
+// roles: 'admin' (acceso total) | 'empleado' (sin eliminar)
+const USUARIOS = [
+  { usuario: 'herrera',   clave: 'Despacho2025!', nombre: 'C.P. Herrera',   rol: 'admin'    },
+  { usuario: 'asistente', clave: 'Asist2025!',    nombre: 'Asistente',      rol: 'empleado' },
+];
+
+const SESSION_KEY  = 'dch_session';
+const TIMEOUT_MS   = 30 * 60 * 1000; // 30 minutos
+const WARNING_MS   = 25 * 60 * 1000; // aviso a los 25 min
+
+let sesionActual  = null;
+let sessionTimer  = null;
+let warningTimer  = null;
+let countdownInt  = null;
+
+// ── LOGIN ──
+function doLogin() {
+  const usuario = document.getElementById('login-user').value.trim().toLowerCase();
+  const clave   = document.getElementById('login-pass').value;
+  const err     = document.getElementById('login-error');
+  const btn     = document.getElementById('login-btn');
+
+  const found = USUARIOS.find(u => u.usuario === usuario && u.clave === clave);
+  if (!found) {
+    err.style.display = 'block';
+    document.getElementById('login-pass').value = '';
+    setTimeout(() => { err.style.display = 'none'; }, 3000);
+    return;
+  }
+
+  sesionActual = { ...found, inicio: Date.now() };
+  localStorage.setItem(SESSION_KEY, JSON.stringify(sesionActual));
+  registrarActividad('login', `Inicio de sesión: ${found.nombre}`);
+  mostrarApp();
+}
+
+function mostrarApp() {
+  document.getElementById('login-screen').classList.add('hidden');
+  document.getElementById('sb-nombre').textContent = sesionActual.nombre;
+  document.getElementById('sb-avatar').textContent = sesionActual.nombre[0].toUpperCase();
+  document.getElementById('sb-role-badge').innerHTML =
+    `<span class="role-badge ${sesionActual.rol === 'admin' ? 'role-admin' : 'role-empleado'}">${sesionActual.rol === 'admin' ? '★ Admin' : '● Empleado'}</span>`;
+
+  // Hide delete buttons for empleado role
+  if (sesionActual.rol === 'empleado') {
+    document.querySelectorAll('#btn-delete-cliente,.btn-danger').forEach(el => {
+      if (!el.id?.includes('extra')) el.style.display = 'none';
+    });
+  }
+
+  iniciarTimerSesion();
+
+  // Set login logo
+  const logoSrc = document.querySelector('.sidebar-brand-logo img')?.src || '';
+  if (logoSrc) document.getElementById('login-logo-img').src = logoSrc;
+}
+
+// ── SESSION TIMER ──
+function iniciarTimerSesion() {
+  clearTimeout(sessionTimer);
+  clearTimeout(warningTimer);
+  clearInterval(countdownInt);
+
+  warningTimer = setTimeout(() => {
+    document.getElementById('session-warning').style.display = 'flex';
+    let secsLeft = 5 * 60;
+    clearInterval(countdownInt);
+    countdownInt = setInterval(() => {
+      secsLeft--;
+      const m = Math.floor(secsLeft / 60);
+      const s = secsLeft % 60;
+      const el = document.getElementById('session-countdown');
+      if (el) el.textContent = `${m}:${s.toString().padStart(2,'0')}`;
+      if (secsLeft <= 0) { clearInterval(countdownInt); cerrarSesion(); }
+    }, 1000);
+  }, WARNING_MS);
+
+  sessionTimer = setTimeout(() => {
+    cerrarSesion();
+  }, TIMEOUT_MS);
+}
+
+function renovarSesion() {
+  document.getElementById('session-warning').style.display = 'none';
+  clearInterval(countdownInt);
+  iniciarTimerSesion();
+  registrarActividad('sesion', 'Sesión renovada');
+}
+
+// Reset timer on user activity
+['click','keydown','mousemove','touchstart'].forEach(evt => {
+  document.addEventListener(evt, () => {
+    if (sesionActual) {
+      clearTimeout(sessionTimer);
+      clearTimeout(warningTimer);
+      clearInterval(countdownInt);
+      document.getElementById('session-warning').style.display = 'none';
+      iniciarTimerSesion();
+    }
+  }, { passive: true });
+});
+
+// ── LOGOUT ──
+function cerrarSesion() {
+  registrarActividad('logout', `Cierre de sesión: ${sesionActual?.nombre || '?'}`);
+  sesionActual = null;
+  localStorage.removeItem(SESSION_KEY);
+  clearTimeout(sessionTimer);
+  clearTimeout(warningTimer);
+  clearInterval(countdownInt);
+  document.getElementById('session-warning').style.display = 'none';
+  document.getElementById('login-screen').classList.remove('hidden');
+  document.getElementById('login-user').value = '';
+  document.getElementById('login-pass').value = '';
+}
+
+// ── ROLE GUARD — block delete for empleados ──
+function puedeEliminar() {
+  if (sesionActual?.rol === 'admin') return true;
+  toast('⛔ No tienes permiso para eliminar registros');
+  return false;
+}
+
+// ── REGISTRO DE ACTIVIDAD ──
+const ACTIVITY_KEY = 'dch_actividad';
+function registrarActividad(tipo, descripcion) {
+  try {
+    const log = JSON.parse(localStorage.getItem(ACTIVITY_KEY) || '[]');
+    log.unshift({ tipo, descripcion, fecha: new Date().toISOString(), usuario: sesionActual?.nombre || '?' });
+    if (log.length > 200) log.splice(200);
+    localStorage.setItem(ACTIVITY_KEY, JSON.stringify(log));
+  } catch(e) {}
+}
+
+// ── CHECK SESSION ON LOAD ──
+function checkSession() {
+  try {
+    const saved = localStorage.getItem(SESSION_KEY);
+    if (saved) {
+      const s = JSON.parse(saved);
+      if (Date.now() - s.inicio < TIMEOUT_MS) {
+        sesionActual = s;
+        return true;
+      }
+    }
+  } catch(e) {}
+  return false;
+}
+
+// async function init() ──
 // ── INIT ──
 async function init() {
   const d = new Date();
   document.getElementById('topDate').textContent = d.toLocaleDateString('es-MX',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+
+  // Check for existing valid session
+  if (checkSession()) {
+    mostrarApp();
+  }
+  // else login screen is already visible by default
+
   await loadData();
   renderDashboard();
 }

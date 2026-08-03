@@ -1111,16 +1111,16 @@ tbody tr:hover { background: #fafbff; }
       </div>
     </div>
 
-    <div class="modal-footer">
-      <button class="btn btn-danger btn-sm" id="btn-delete-cliente">Eliminar</button>
+    <div class="modal-footer" style="flex-wrap:wrap;gap:6px;">
+      <button class="btn btn-sm" id="btn-delete-cliente" onclick="mostrarConfirmDelete()" style="background:#fee2e2;color:#dc2626;border:1px solid #fca5a5;font-weight:600;">🗑 Eliminar</button>
       <button class="btn btn-outline" onclick="closeModal('modal-detalle')">Cerrar</button>
       <button class="btn btn-outline" id="btn-edit-cliente">Editar</button>
-      <button class="btn btn-outline" id="btn-servicio-extra-cliente" style="color:var(--accent);border-color:var(--accent)">+ Servicio adicional</button>
-      <button class="btn btn-outline" id="btn-recibo-cliente" style="color:#7c3aed;border-color:#7c3aed;display:flex;align-items:center;gap:5px;">
+      <button class="btn btn-outline" id="btn-servicio-extra-cliente" style="color:var(--accent);border-color:var(--accent)">+ Servicio</button>
+      <button class="btn btn-outline" id="btn-recibo-cliente" onclick="openReciboModal()" style="color:#7c3aed;border-color:#7c3aed;display:inline-flex;align-items:center;gap:5px;">
         <svg width="13" height="13" fill="none" stroke="#7c3aed" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
         Recibo
       </button>
-      <button class="btn btn-outline" id="btn-whatsapp-cliente" style="color:#25d366;border-color:#25d366;display:flex;align-items:center;gap:6px;">
+      <button class="btn btn-outline" id="btn-whatsapp-cliente" style="color:#25d366;border-color:#25d366;display:inline-flex;align-items:center;gap:6px;">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="#25d366"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
         WhatsApp
       </button>
@@ -1348,6 +1348,37 @@ tbody tr:hover { background: #fafbff; }
     <div class="modal-footer">
       <button class="btn btn-outline" onclick="closeModal('modal-pago-extra')">Cancelar</button>
       <button class="btn btn-success" onclick="confirmarPagoExtra()">Guardar pago</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: RECIBO DE PAGO -->
+<div class="modal-overlay" id="modal-recibo">
+  <div class="modal" style="max-width:560px">
+    <div class="modal-header">
+      <div class="modal-title" style="display:flex;align-items:center;gap:8px;">
+        <svg width="16" height="16" fill="none" stroke="#7c3aed" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+        Generar recibo de pago
+      </div>
+      <div class="modal-close" onclick="closeModal('modal-recibo')">✕</div>
+    </div>
+    <div class="modal-body">
+      <div class="form-group" style="margin-bottom:16px;">
+        <label class="form-label">Selecciona el pago</label>
+        <select class="form-select" id="recibo-pago-sel" onchange="previsualizarRecibo()"></select>
+      </div>
+      <div id="recibo-preview" style="border:1px solid var(--border);border-radius:10px;overflow:hidden;background:#fff;max-height:400px;overflow-y:auto;"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('modal-recibo')">Cerrar</button>
+      <button class="btn btn-outline" onclick="imprimirRecibo()" style="display:flex;align-items:center;gap:6px;">
+        <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+        Imprimir
+      </button>
+      <button class="btn btn-primary" onclick="descargarReciboPDF()" style="background:#7c3aed;border:none;display:flex;align-items:center;gap:6px;">
+        <svg width="13" height="13" fill="none" stroke="#fff" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Descargar PDF
+      </button>
     </div>
   </div>
 </div>
@@ -2013,20 +2044,17 @@ function openDetalle(id) {
   `;
   document.getElementById('detalle-content').innerHTML = html;
   document.getElementById('delete-confirm-bar').style.display = 'none';
-  document.getElementById('btn-delete-cliente').onclick = () => mostrarConfirmDelete();
-  document.getElementById('btn-delete-cliente').style.display = 'inline-flex';
+  // Wire buttons that need dynamic id
   document.getElementById('btn-pagar-cliente').onclick = () => { closeModal('modal-detalle'); openPago(id); };
   document.getElementById('btn-edit-cliente').onclick = () => openEdit(id);
   document.getElementById('btn-servicio-extra-cliente').onclick = () => openServicioCliente(id);
   document.getElementById('btn-whatsapp-cliente').onclick = () => openWhatsApp(id);
-  document.getElementById('btn-recibo-cliente').onclick = () => openRecibo(id);
   document.getElementById('btn-pagar-cliente').style.display = meses > 0 ? 'inline-flex' : 'none';
   const c2 = clientes.find(x=>x.id===id);
   document.getElementById('btn-whatsapp-cliente').style.display = (c2 && c2.telefono) ? 'inline-flex' : 'none';
-  // Hide delete for empleado role
-  if (sesionActual && sesionActual.rol !== 'admin') {
-    document.getElementById('btn-delete-cliente').style.display = 'none';
-  }
+  // Hide delete for empleado
+  document.getElementById('btn-delete-cliente').style.display =
+    (sesionActual && sesionActual.rol !== 'admin') ? 'none' : 'inline-flex';
   openModal('modal-detalle');
 }
 
@@ -2358,6 +2386,143 @@ function renderExtras() {
         <button class="btn btn-danger btn-sm" onclick="deleteExtra('${x.id}')">Eliminar</button>
       </td>
     </tr>`).join('');
+}
+
+// ── RECIBOS DE PAGO ──
+let reciboClienteId = null;
+
+function openReciboModal() {
+  openRecibo(currentDetailId);
+}
+
+function openRecibo(id) {
+  const c = clientes.find(x => x.id === id);
+  if (!c) return;
+  reciboClienteId = id;
+  const pagos = (c.pagos || []).filter(p => p.estado !== 'pendiente').slice().reverse();
+  const sel = document.getElementById('recibo-pago-sel');
+  if (pagos.length === 0) {
+    sel.innerHTML = '<option>Sin pagos registrados</option>';
+    document.getElementById('recibo-preview').innerHTML =
+      '<div style="padding:32px;text-align:center;color:#9ca3af;font-size:13px;">Este cliente no tiene pagos registrados.</div>';
+    openModal('modal-recibo');
+    return;
+  }
+  sel.innerHTML = pagos.map(p =>
+    `<option value="${p.id}">${p.descripcion || p.tipo || 'Pago'} — ${p.fecha ? new Date(p.fecha+'T12:00:00').toLocaleDateString('es-MX',{day:'numeric',month:'long',year:'numeric'}) : '—'} — $${Number(p.monto).toLocaleString('es-MX')}</option>`
+  ).join('');
+  closeModal('modal-detalle');
+  openModal('modal-recibo');
+  previsualizarRecibo();
+}
+
+function getReciboHTML(c, pago) {
+  const fecha = pago.fecha
+    ? new Date(pago.fecha+'T12:00:00').toLocaleDateString('es-MX',{day:'numeric',month:'long',year:'numeric'})
+    : new Date().toLocaleDateString('es-MX',{day:'numeric',month:'long',year:'numeric'});
+  const folio  = 'REC-' + pago.id.slice(0,8).toUpperCase();
+  const monto  = Number(pago.monto).toLocaleString('es-MX',{minimumFractionDigits:2});
+  const logoSrc = document.querySelector('.sidebar-brand-logo img')?.src || '';
+
+  return `
+  <div style="font-family:'Helvetica Neue',Arial,sans-serif;max-width:520px;margin:0 auto;padding:32px;color:#111;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;padding-bottom:20px;border-bottom:2px solid #1a2236;">
+      <div style="display:flex;align-items:center;gap:12px;">
+        ${logoSrc?`<img src="${logoSrc}" style="width:56px;height:56px;object-fit:contain;border-radius:8px;">`:''}
+        <div>
+          <div style="font-size:15px;font-weight:800;color:#1a2236;line-height:1.2;">Despacho Contable</div>
+          <div style="font-size:15px;font-weight:800;color:#1a2236;">"Herrera"</div>
+          <div style="font-size:10px;color:#6b7280;margin-top:2px;letter-spacing:0.5px;">SERVICIOS CONTABLES Y FISCALES</div>
+        </div>
+      </div>
+      <div style="text-align:right;">
+        <div style="font-size:18px;font-weight:800;color:#7c3aed;letter-spacing:1px;">RECIBO DE PAGO</div>
+        <div style="font-size:12px;color:#6b7280;margin-top:4px;">Folio: <strong>${folio}</strong></div>
+        <div style="font-size:12px;color:#6b7280;">Fecha: <strong>${fecha}</strong></div>
+      </div>
+    </div>
+    <div style="background:#f8f7ff;border-radius:10px;padding:16px 18px;margin-bottom:20px;border-left:4px solid #7c3aed;">
+      <div style="font-size:10px;color:#7c3aed;font-weight:700;letter-spacing:1px;text-transform:uppercase;margin-bottom:8px;">Datos del cliente</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+        <div><span style="font-size:10px;color:#6b7280;">Nombre</span><br><strong style="font-size:13px;">${c.nombre}</strong></div>
+        <div><span style="font-size:10px;color:#6b7280;">RFC</span><br><strong style="font-size:13px;">${c.rfc||'—'}</strong></div>
+        <div><span style="font-size:10px;color:#6b7280;">Teléfono</span><br><strong style="font-size:13px;">${c.telefono||'—'}</strong></div>
+        <div><span style="font-size:10px;color:#6b7280;">Correo</span><br><strong style="font-size:13px;">${c.email||'—'}</strong></div>
+      </div>
+    </div>
+    <table style="width:100%;border-collapse:collapse;margin-bottom:20px;">
+      <thead>
+        <tr style="background:#1a2236;color:#fff;">
+          <th style="padding:10px 14px;text-align:left;font-size:11px;border-radius:6px 0 0 0;">Descripción</th>
+          <th style="padding:10px 14px;text-align:center;font-size:11px;">Tipo</th>
+          <th style="padding:10px 14px;text-align:right;font-size:11px;border-radius:0 6px 0 0;">Importe</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr style="border-bottom:1px solid #e5e7eb;">
+          <td style="padding:12px 14px;font-size:13px;">${pago.descripcion||pago.tipo||'Pago de honorarios'}</td>
+          <td style="padding:12px 14px;text-align:center;">
+            <span style="background:#ede9fe;color:#7c3aed;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;">${pago.tipo||'Honorarios'}</span>
+          </td>
+          <td style="padding:12px 14px;text-align:right;font-size:13px;font-weight:700;">$${monto}</td>
+        </tr>
+      </tbody>
+      <tfoot>
+        <tr style="background:#f9fafb;">
+          <td colspan="2" style="padding:14px;text-align:right;font-size:13px;font-weight:700;color:#374151;">TOTAL PAGADO:</td>
+          <td style="padding:14px;text-align:right;font-size:18px;font-weight:800;color:#16a34a;">$${monto}</td>
+        </tr>
+      </tfoot>
+    </table>
+    <div style="display:flex;align-items:center;justify-content:center;gap:8px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:12px;margin-bottom:20px;">
+      <span style="font-size:18px;">✅</span>
+      <span style="font-size:13px;font-weight:700;color:#16a34a;">PAGO RECIBIDO CORRECTAMENTE</span>
+    </div>
+    <div style="text-align:center;padding-top:16px;border-top:1px solid #e5e7eb;">
+      <div style="font-size:11px;color:#9ca3af;">Este documento es un comprobante de pago emitido por</div>
+      <div style="font-size:12px;font-weight:700;color:#1a2236;margin-top:2px;">Despacho Contable "Herrera"</div>
+      <div style="font-size:10px;color:#d1d5db;margin-top:8px;">Folio: ${folio} · Generado el ${new Date().toLocaleDateString('es-MX')}</div>
+    </div>
+  </div>`;
+}
+
+function previsualizarRecibo() {
+  const c = clientes.find(x => x.id === reciboClienteId);
+  if (!c) return;
+  const pagoId = document.getElementById('recibo-pago-sel').value;
+  const pago   = (c.pagos||[]).find(p => p.id === pagoId);
+  if (!pago) return;
+  document.getElementById('recibo-preview').innerHTML = getReciboHTML(c, pago);
+}
+
+function imprimirRecibo() {
+  const c = clientes.find(x => x.id === reciboClienteId);
+  if (!c) return;
+  const pagoId = document.getElementById('recibo-pago-sel').value;
+  const pago   = (c.pagos||[]).find(p => p.id === pagoId);
+  if (!pago) return;
+  const win = window.open('', '_blank');
+  win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Recibo — ${c.nombre}</title>
+    <style>body{margin:0;padding:20px;background:#fff;}@media print{body{padding:0;}@page{margin:1cm;}}</style>
+  </head><body>${getReciboHTML(c,pago)}</body></html>`);
+  win.document.close();
+  win.focus();
+  setTimeout(() => win.print(), 500);
+}
+
+function descargarReciboPDF() {
+  const c = clientes.find(x => x.id === reciboClienteId);
+  if (!c) return;
+  const pagoId = document.getElementById('recibo-pago-sel').value;
+  const pago   = (c.pagos||[]).find(p => p.id === pagoId);
+  if (!pago) return;
+  const folio = 'REC-' + pago.id.slice(0,8).toUpperCase();
+  const win = window.open('', '_blank');
+  win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Recibo ${folio}</title>
+    <style>body{margin:0;padding:20px;background:#fff;font-family:Arial,sans-serif;}@media print{body{padding:0;}@page{margin:1cm;size:A4;}}</style>
+    <script>window.onload=function(){window.print();}<\/script>
+  </head><body>${getReciboHTML(c,pago)}</body></html>`);
+  win.document.close();
 }
 
 // ── WHATSAPP ──

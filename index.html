@@ -453,9 +453,13 @@ const SB_URL='https://twppflynayfjqvqphazo.supabase.co';
 const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR3cHBmbHluYXlmanF2cXBoYXpvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQxMzE2ODIsImV4cCI6MjA5OTcwNzY4Mn0.abKzHnx4e9-TQcJNV6uEGGouyJIfGQyMYlH6lvuhMDE';
 
 async function sbReq(path,opts={}){
-  const res=await fetch(`${SB_URL}/rest/v1/${path}`,{...opts,headers:{'apikey':SB_KEY,'Authorization':`Bearer ${SB_KEY}`,'Content-Type':'application/json','Prefer':opts.prefer||'return=representation',...(opts.headers||{})}});
-  if(!res.ok) throw new Error(await res.text());
-  const t=await res.text(); return t?JSON.parse(t):null;
+  const method=opts.method||'GET';
+  const prefer=opts.prefer||(opts.headers&&opts.headers['Prefer'])||'return=representation';
+  const fetchOpts={method,headers:{'apikey':SB_KEY,'Authorization':`Bearer ${SB_KEY}`,'Content-Type':'application/json','Prefer':prefer}};
+  if(opts.body)fetchOpts.body=opts.body;
+  const res=await fetch(`${SB_URL}/rest/v1/${path}`,fetchOpts);
+  if(!res.ok){const err=await res.text();console.error('SB Error',res.status,path,err);throw new Error(err);}
+  const t=await res.text();return t?JSON.parse(t):null;
 }
 let clientes=[],extras=[];
 let editingId=null,editingExtraId=null,currentDetailId=null;
@@ -481,11 +485,12 @@ async function sbDeleteCliente(id){await Promise.all([sbReq(`clientes?id=eq.${id
 async function sbUpsertExtra(x){await sbReq('extras',{method:'POST',body:JSON.stringify(extraToRow(x)),headers:{'Prefer':'resolution=merge-duplicates,return=minimal'}});}
 async function sbDeleteExtra(id){await sbReq(`extras?id=eq.${id}`,{method:'DELETE',headers:{'Prefer':'return=minimal'}});}
 
-function showSync(msg,done=false){
+function showSync(msg,done=false,err=false){
   let el=document.getElementById('sync-bar');
-  el.innerHTML=`<span style="width:8px;height:8px;border-radius:50%;background:${done?'#22c97a':'#4f8ef7'};${done?'':'animation:sbpulse 1s infinite'}"></span>${msg}`;
+  const color=err?'#ef4444':done?'#22c97a':'#4f8ef7';
+  el.innerHTML=`<span style="width:8px;height:8px;border-radius:50%;background:${color};${(!done&&!err)?'animation:sbpulse 1s infinite':''}"></span>${msg}`;
   el.style.display='flex';clearTimeout(el._t);
-  if(done)el._t=setTimeout(()=>el.style.display='none',2000);
+  if(done||err)el._t=setTimeout(()=>el.style.display='none',err?4000:2000);
 }
 async function loadData(){
   showSync('Conectando...');
@@ -635,11 +640,18 @@ function openDetalle(id){
 function mostrarConfirmDelete(){document.getElementById('delete-confirm-bar').style.display='flex';}
 function cancelarDelete(){document.getElementById('delete-confirm-bar').style.display='none';}
 async function ejecutarDeleteCliente(){
-  if(sesionActual&&sesionActual.rol!=='admin'){toast('⛔ Sin permiso');return;}
-  const id=currentDetailId;clientes=clientes.filter(c=>c.id!==id);saveData();
-  closeModal('modal-detalle');showSync('Eliminando...');
-  try{await sbDeleteCliente(id);showSync('Eliminado ✓',true);}catch(e){console.error(e);}
-  renderDashboard();renderClientes();renderCobranza();toast('Cliente eliminado');
+  if(!sesionActual||sesionActual.rol!=='admin'){toast('⛔ Solo el administrador puede eliminar clientes');return;}
+  if(!currentDetailId){toast('Error: no hay cliente seleccionado');return;}
+  const id=currentDetailId;
+  clientes=clientes.filter(c=>c.id!==id);
+  saveData();
+  document.getElementById('delete-confirm-bar').style.display='none';
+  closeModal('modal-detalle');
+  showSync('Eliminando...');
+  renderDashboard();renderClientes();renderCobranza();
+  toast('Cliente eliminado ✓');
+  try{await sbDeleteCliente(id);showSync('Eliminado en nube ✓',true);}
+  catch(e){console.error('Delete SB error:',e);showSync('Eliminado local (error nube)',false,true);}
 }
 function openAddClient(){
   editingId=null;document.getElementById('modal-cliente-title').textContent='Agregar cliente';
@@ -673,7 +685,7 @@ async function saveCliente(){
   if(editingId){const idx=clientes.findIndex(c=>c.id===editingId);if(idx>-1){clientes[idx]={...clientes[idx],...campos};cliente=clientes[idx];}toast('Cliente actualizado ✓');}
   else{cliente={id:genId(),...campos,pagos:[],fechaRegistro:new Date().toISOString()};clientes.push(cliente);toast('Cliente agregado ✓');}
   saveData();showSync('Guardando...');
-  try{await sbUpsertCliente(cliente);showSync('Guardado ✓',true);}catch(e){console.error(e);}
+  try{await sbUpsertCliente(cliente);showSync('Guardado ✓',true);}catch(e){console.error(e);showSync('Error al guardar: '+e.message,false,true);toast('⚠ Error Supabase: revisa políticas RLS');}
   closeModal('modal-cliente');renderDashboard();renderClientes();renderCobranza();
 }
 function openAddPagoExtra(){
@@ -757,7 +769,7 @@ async function confirmarPago(){
     nuevoPago={id:genId(),fecha,meses:mesesPago,monto,tipo:'Honorarios mensuales',descripcion:`Honorarios ${mesesPago} mes${mesesPago!==1?'es':''}`,estado:'pagado'};
     c.pagos.push(nuevoPago);c.mesesAdeudo=Math.max(0,mesesAct-mesesPago);
     saveData();closeModal('modal-pago');toast(`Honorarios ${fmt(monto)} registrados ✓`);
-    showSync('Guardando...');try{await Promise.all([sbUpsertCliente(c),sbUpsertPago(nuevoPago,c.id)]);showSync('Guardado ✓',true);}catch(e){console.error(e);}
+    showSync('Guardando...');try{await Promise.all([sbUpsertCliente(c),sbUpsertPago(nuevoPago,c.id)]);showSync('Guardado ✓',true);}catch(e){console.error(e);showSync('Error al guardar pago',false,true);toast('⚠ Error Supabase: '+e.message.slice(0,80));}
   }else{
     if(selectedPendienteId){
       const pago=(c.pagos||[]).find(p=>p.id===selectedPendienteId);

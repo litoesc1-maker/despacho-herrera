@@ -222,7 +222,7 @@ tbody tr:last-child td{border-bottom:none;}tbody tr:hover{background:#fafbff;}
 <main class="main">
   <div class="topbar">
     <div><div class="topbar-title" id="pageTitle">Resumen General</div><div class="topbar-date" id="topDate"></div></div>
-    <div><button class="btn btn-primary" onclick="openAddClient()"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Agregar cliente</button></div>
+    <div><button class="btn btn-outline btn-sm" onclick="openDiag()" style="font-size:11px;padding:5px 10px;" title="Diagnóstico Supabase">🔧</button> <button class="btn btn-primary" onclick="openAddClient()"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Agregar cliente</button></div>
   </div>
 
   <div id="page-dashboard" class="page active">
@@ -451,6 +451,24 @@ tbody tr:last-child td{border-bottom:none;}tbody tr:hover{background:#fafbff;}
     </div>
   </div>
   <button class="chat-fab" onclick="toggleChat()"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" style="width:24px;height:24px"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></button>
+</div>
+
+
+<!-- MODAL DIAGNÓSTICO -->
+<div class="modal-overlay" id="modal-diag">
+  <div class="modal" style="max-width:520px">
+    <div class="modal-header">
+      <div class="modal-title">🔧 Diagnóstico de conexión</div>
+      <div class="modal-close" onclick="closeModal('modal-diag')">✕</div>
+    </div>
+    <div class="modal-body">
+      <div id="diag-results" style="font-family:monospace;font-size:12px;line-height:1.8;"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal('modal-diag')">Cerrar</button>
+      <button class="btn btn-primary" onclick="runDiag()">🔄 Volver a probar</button>
+    </div>
+  </div>
 </div>
 
 <div id="sync-bar" style="position:fixed;bottom:92px;right:28px;z-index:500;background:#1a2236;color:#fff;padding:8px 14px;border-radius:8px;font-size:12px;font-weight:600;display:none;align-items:center;gap:7px;box-shadow:0 4px 12px rgba(0,0,0,.2);transition:opacity .3s;"></div>
@@ -935,6 +953,43 @@ function renovarSesion(){document.getElementById('session-warning').style.displa
 ['click','keydown','mousemove','touchstart'].forEach(evt=>{document.addEventListener(evt,()=>{if(sesionActual){clearTimeout(sessionTimer);clearTimeout(warningTimer);clearInterval(countdownInt);document.getElementById('session-warning').style.display='none';iniciarTimerSesion();}},{passive:true});});
 function cerrarSesion(){sesionActual=null;localStorage.removeItem(SESSION_KEY);clearTimeout(sessionTimer);clearTimeout(warningTimer);clearInterval(countdownInt);document.getElementById('session-warning').style.display='none';document.getElementById('login-screen').classList.remove('hidden');document.getElementById('login-user').value='';document.getElementById('login-pass').value='';}
 function checkSession(){try{const s=JSON.parse(localStorage.getItem(SESSION_KEY)||'null');if(s&&Date.now()-s.inicio<TIMEOUT_MS){sesionActual=s;return true;}}catch{}return false;}
+async function runDiag(){
+  const el=document.getElementById('diag-results');
+  if(!el)return;
+  el.innerHTML='⏳ Probando conexión...<br>';
+  const add=(msg,ok=null)=>{el.innerHTML+=`${ok===true?'✅':ok===false?'❌':'ℹ️'} ${msg}<br>`;};
+  add(`URL: ${SB_URL}`);
+  add(`KEY: ${SB_KEY.slice(0,20)}...`);
+  // Test 1: fetch clientes
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/clientes?limit=1`,{headers:{'apikey':SB_KEY,'Authorization':`Bearer ${SB_KEY}`,'Content-Type':'application/json'}});
+    if(r.ok){const d=await r.json();add(`GET clientes → HTTP ${r.status} ✓ (${d.length} registros)`,true);}
+    else{const t=await r.text();add(`GET clientes → HTTP ${r.status}: ${t.slice(0,80)}`,false);}
+  }catch(e){add(`GET clientes → ${e.message}`,false);}
+  // Test 2: fetch pagos
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/pagos?limit=1`,{headers:{'apikey':SB_KEY,'Authorization':`Bearer ${SB_KEY}`}});
+    if(r.ok){add(`GET pagos → HTTP ${r.status} ✓`,true);}
+    else{add(`GET pagos → HTTP ${r.status}`,false);}
+  }catch(e){add(`GET pagos → ${e.message}`,false);}
+  // Test 3: INSERT test
+  try{
+    const r=await fetch(`${SB_URL}/rest/v1/clientes`,{method:'POST',headers:{'apikey':SB_KEY,'Authorization':`Bearer ${SB_KEY}`,'Content-Type':'application/json','Prefer':'return=representation'},body:JSON.stringify({nombre:'__DIAG_TEST__',honorarios:1,meses_adeudo:0})});
+    if(r.ok){
+      const d=await r.json();const tid=d[0]?.id;
+      add(`INSERT → HTTP ${r.status} ✓ (id: ${tid?.slice(0,8)})`,true);
+      // Test 4: DELETE test
+      try{
+        const r2=await fetch(`${SB_URL}/rest/v1/clientes?id=eq.${tid}`,{method:'DELETE',headers:{'apikey':SB_KEY,'Authorization':`Bearer ${SB_KEY}`,'Prefer':'return=minimal'}});
+        if(r2.ok){add(`DELETE → HTTP ${r2.status} ✓`,true);}
+        else{const t=await r2.text();add(`DELETE → HTTP ${r2.status}: ${t.slice(0,80)}`,false);}
+      }catch(e){add(`DELETE → ${e.message}`,false);}
+    }else{const t=await r.text();add(`INSERT → HTTP ${r.status}: ${t.slice(0,120)}`,false);}
+  }catch(e){add(`INSERT → ${e.message}`,false);}
+  add('--- Diagnóstico completo ---');
+}
+async function openDiag(){openModal('modal-diag');await runDiag();}
+
 async function init(){const d=new Date();document.getElementById('topDate').textContent=d.toLocaleDateString('es-MX',{weekday:'long',year:'numeric',month:'long',day:'numeric'});if(checkSession())mostrarApp();await loadData();renderDashboard();}
 init();
 

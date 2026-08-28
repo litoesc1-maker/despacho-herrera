@@ -160,6 +160,9 @@ tbody tr:last-child td{border-bottom:none;}tbody tr:hover{background:#fafbff;}
 @keyframes tdot{0%,60%,100%{opacity:.3}30%{opacity:1}}
 @keyframes sbpulse{0%,100%{opacity:1}50%{opacity:.3}}
 .toast{position:fixed;bottom:24px;right:24px;z-index:200;background:#1a2236;color:#fff;padding:12px 20px;border-radius:10px;font-size:13px;font-weight:500;box-shadow:var(--shadow-md);transform:translateY(60px);opacity:0;transition:all .3s;pointer-events:none;}.toast.show{transform:translateY(0);opacity:1;}
+/* Delete button: visible only for admin */
+#btn-delete-cliente{display:none;}
+body.is-admin #btn-delete-cliente{display:inline-flex;}
 </style>
 </head>
 <body>
@@ -979,15 +982,15 @@ function mostrarApp(){
   document.getElementById('sb-nombre').textContent=sesionActual.nombre;
   document.getElementById('sb-avatar').textContent=sesionActual.nombre[0].toUpperCase();
   document.getElementById('sb-role-badge').innerHTML=`<span class="role-badge ${sesionActual.rol==='admin'?'role-admin':'role-empleado'}">${sesionActual.rol==='admin'?'★ Admin':'● Empleado'}</span>`;
-  // Set delete button visibility based on role — done once at login
-  const esAdmin=sesionActual.rol==='admin';
-  document.getElementById('btn-delete-cliente').style.display=esAdmin?'inline-flex':'none';
+  // Admin class on body controls delete button via CSS
+  if(sesionActual.rol==='admin'){document.body.classList.add('is-admin');}
+  else{document.body.classList.remove('is-admin');}
   iniciarTimerSesion();
 }
 function iniciarTimerSesion(){clearTimeout(sessionTimer);clearTimeout(warningTimer);clearInterval(countdownInt);warningTimer=setTimeout(()=>{document.getElementById('session-warning').style.display='flex';let s=5*60;clearInterval(countdownInt);countdownInt=setInterval(()=>{s--;const el=document.getElementById('session-countdown');if(el)el.textContent=`${Math.floor(s/60)}:${(s%60).toString().padStart(2,'0')}`;if(s<=0){clearInterval(countdownInt);cerrarSesion();}},1000);},WARNING_MS);sessionTimer=setTimeout(()=>cerrarSesion(),TIMEOUT_MS);}
 function renovarSesion(){document.getElementById('session-warning').style.display='none';clearInterval(countdownInt);iniciarTimerSesion();}
 ['click','keydown','mousemove','touchstart'].forEach(evt=>{document.addEventListener(evt,()=>{if(sesionActual){clearTimeout(sessionTimer);clearTimeout(warningTimer);clearInterval(countdownInt);document.getElementById('session-warning').style.display='none';iniciarTimerSesion();}},{passive:true});});
-function cerrarSesion(){sesionActual=null;localStorage.removeItem(SESSION_KEY);clearTimeout(sessionTimer);clearTimeout(warningTimer);clearInterval(countdownInt);document.getElementById('session-warning').style.display='none';document.getElementById('login-screen').classList.remove('hidden');document.getElementById('login-user').value='';document.getElementById('login-pass').value='';}
+function cerrarSesion(){sesionActual=null;localStorage.removeItem(SESSION_KEY);document.body.classList.remove('is-admin');clearTimeout(sessionTimer);clearTimeout(warningTimer);clearInterval(countdownInt);document.getElementById('session-warning').style.display='none';document.getElementById('login-screen').classList.remove('hidden');document.getElementById('login-user').value='';document.getElementById('login-pass').value='';}
 function checkSession(){try{const s=JSON.parse(localStorage.getItem(SESSION_KEY)||'null');if(s&&Date.now()-s.inicio<TIMEOUT_MS){sesionActual=s;return true;}}catch{}return false;}
 async function runDiag(){
   const el=document.getElementById('diag-results');

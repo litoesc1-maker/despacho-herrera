@@ -4,7 +4,6 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Despacho Contable Herrera</title>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap');
 :root{--bg:#f5f6fa;--bg-white:#fff;--bg-sidebar:#1a2236;--bg-sidebar-hover:#243048;--bg-sidebar-active:#2d3d5c;--accent:#2563eb;--accent-light:#eff4ff;--accent-hover:#1d4ed8;--green:#16a34a;--green-light:#f0fdf4;--yellow:#d97706;--yellow-light:#fffbeb;--red:#dc2626;--red-light:#fef2f2;--border:#e2e6ef;--text:#111827;--text-secondary:#6b7280;--text-muted:#9ca3af;--sidebar-text:#94a3b8;--sidebar-text-active:#f1f5f9;--font-display:'Space Grotesk',sans-serif;--font-body:'Inter',sans-serif;--radius:10px;--shadow:0 1px 3px rgba(0,0,0,.08),0 1px 2px rgba(0,0,0,.04);--shadow-md:0 4px 16px rgba(0,0,0,.10);}
@@ -478,7 +477,40 @@ tbody tr:last-child td{border-bottom:none;}tbody tr:hover{background:#fafbff;}
 <script>
 const SB_URL='https://twppflynayfjqvqphazo.supabase.co';
 const SB_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR3cHBmbHluYXlmanF2cXBoYXpvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQxMzE2ODIsImV4cCI6MjA5OTcwNzY4Mn0.abKzHnx4e9-TQcJNV6uEGGouyJIfGQyMYlH6lvuhMDE';
-const sb=window.supabase.createClient(SB_URL,SB_KEY);
+
+// Supabase REST client — fetch directo, sin SDK
+const sb={
+  _h:{apikey:SB_KEY,Authorization:'Bearer '+SB_KEY,'Content-Type':'application/json'},
+  async get(table,params=''){
+    const r=await fetch(SB_URL+'/rest/v1/'+table+(params?'?'+params:''),{headers:this._h});
+    if(!r.ok){const t=await r.text();throw new Error('GET '+table+' '+r.status+': '+t.slice(0,100));}
+    return r.json();
+  },
+  async upsert(table,data){
+    const r=await fetch(SB_URL+'/rest/v1/'+table,{
+      method:'POST',
+      headers:{...this._h,'Prefer':'resolution=merge-duplicates,return=minimal'},
+      body:JSON.stringify(data)
+    });
+    if(!r.ok){const t=await r.text();throw new Error('UPSERT '+table+' '+r.status+': '+t.slice(0,100));}
+  },
+  async insert(table,data){
+    const r=await fetch(SB_URL+'/rest/v1/'+table,{
+      method:'POST',
+      headers:{...this._h,'Prefer':'return=representation'},
+      body:JSON.stringify(data)
+    });
+    if(!r.ok){const t=await r.text();throw new Error('INSERT '+table+' '+r.status+': '+t.slice(0,100));}
+    return r.json();
+  },
+  async delete(table,col,val){
+    const r=await fetch(SB_URL+'/rest/v1/'+table+'?'+col+'=eq.'+val,{
+      method:'DELETE',
+      headers:{...this._h,'Prefer':'return=minimal'}
+    });
+    if(!r.ok){const t=await r.text();throw new Error('DELETE '+table+' '+r.status+': '+t.slice(0,100));}
+  }
+};
 let clientes=[],extras=[];
 let editingId=null,editingExtraId=null,currentDetailId=null;
 let filterStatus='todos',cobFilterStatus='todos',extraFilterStatus='todos';
@@ -497,29 +529,13 @@ function clienteToRow(c){return{id:c.id,nombre:c.nombre,rfc:c.rfc||null,telefono
 function pagoToRow(p,cId){return{id:p.id,cliente_id:cId,fecha:p.fecha,monto:p.monto,tipo:p.tipo||null,descripcion:p.descripcion||null,estado:p.estado||'pagado',meses:p.meses||null,fecha_pago:p.fechaPago||null};}
 function extraToRow(x){return{id:x.id,nombre:x.nombre,telefono:x.telefono||null,email:x.email||null,tipo:x.tipo||null,descripcion:x.descripcion||null,monto:x.monto,fecha:x.fecha||null,estado:x.estado||'pagado'};}
 
-async function sbUpsertCliente(c){
-  const {error}=await sb.from('clientes').upsert(clienteToRow(c));
-  if(error)throw new Error(error.message);
-}
-async function sbUpsertPago(p,cId){
-  const {error}=await sb.from('pagos').upsert(pagoToRow(p,cId));
-  if(error)throw new Error(error.message);
-}
+async function sbUpsertCliente(c){await sb.upsert('clientes',clienteToRow(c));}
+async function sbUpsertPago(p,cId){await sb.upsert('pagos',pagoToRow(p,cId));}
 async function sbDeleteCliente(id){
-  const [r1,r2]=await Promise.all([
-    sb.from('clientes').delete().eq('id',id),
-    sb.from('pagos').delete().eq('cliente_id',id)
-  ]);
-  if(r1.error)throw new Error(r1.error.message);
+  await Promise.all([sb.delete('clientes','id',id),sb.delete('pagos','cliente_id',id)]);
 }
-async function sbUpsertExtra(x){
-  const {error}=await sb.from('extras').upsert(extraToRow(x));
-  if(error)throw new Error(error.message);
-}
-async function sbDeleteExtra(id){
-  const {error}=await sb.from('extras').delete().eq('id',id);
-  if(error)throw new Error(error.message);
-}
+async function sbUpsertExtra(x){await sb.upsert('extras',extraToRow(x));}
+async function sbDeleteExtra(id){await sb.delete('extras','id',id);}
 
 function showSync(msg,done=false,err=false){
   let el=document.getElementById('sync-bar');
@@ -532,16 +548,13 @@ let modoOffline=false;
 async function loadData(){
   showSync('Conectando con Supabase...');
   try{
-    const[{data:cRows,error:e1},{data:pRows,error:e2},{data:eRows,error:e3}]=await Promise.all([
-      sb.from('clientes').select('*').order('nombre'),
-      sb.from('pagos').select('*').order('fecha'),
-      sb.from('extras').select('*').order('fecha',{ascending:false})
+    const[cRows,pRows,eRows]=await Promise.all([
+      sb.get('clientes','order=nombre'),
+      sb.get('pagos','order=fecha'),
+      sb.get('extras','order=fecha.desc')
     ]);
-    if(e1)throw new Error(e1.message);
-    if(e2)throw new Error(e2.message);
-    if(e3)throw new Error(e3.message);
-    clientes=(cRows||[]).map(r=>rowToCliente(r,pRows||[]));
-    extras=(eRows||[]).map(r=>({id:r.id,nombre:r.nombre,telefono:r.telefono||'',email:r.email||'',tipo:r.tipo||'',descripcion:r.descripcion||'',monto:parseFloat(r.monto)||0,fecha:r.fecha||'',estado:r.estado||'pagado'}));
+    clientes=cRows.map(r=>rowToCliente(r,pRows));
+    extras=eRows.map(r=>({id:r.id,nombre:r.nombre,telefono:r.telefono||'',email:r.email||'',tipo:r.tipo||'',descripcion:r.descripcion||'',monto:parseFloat(r.monto)||0,fecha:r.fecha||'',estado:r.estado||'pagado'}));
     modoOffline=false;
     showSync('Sincronizado con nube ✓',true);
     document.getElementById('offline-bar').style.display='none';
@@ -979,34 +992,29 @@ function checkSession(){try{const s=JSON.parse(localStorage.getItem(SESSION_KEY)
 async function runDiag(){
   const el=document.getElementById('diag-results');
   if(!el)return;
-  el.innerHTML='⏳ Probando conexión con SDK...<br>';
+  el.innerHTML='⏳ Probando conexión...<br>';
   const add=(msg,ok=null)=>{el.innerHTML+=`${ok===true?'✅':ok===false?'❌':'ℹ️'} ${msg}<br>`;};
-  add(`URL: ${SB_URL}`);
-  add(`SDK cargado: ${typeof window.supabase !== 'undefined'}`, typeof window.supabase !== 'undefined');
-  // Test 1: SELECT clientes
+  add('URL: '+SB_URL);
+  // Test SELECT clientes
   try{
-    const {data,error}=await sb.from('clientes').select('*').limit(1);
-    if(error)add(`SELECT clientes → Error: ${error.message}`,false);
-    else add(`SELECT clientes → OK (${data.length} fila de muestra)`,true);
-  }catch(e){add(`SELECT clientes → ${e.message}`,false);}
-  // Test 2: SELECT pagos
+    const data=await sb.get('clientes','limit=1');
+    add('SELECT clientes → OK ('+data.length+' fila de muestra)',true);
+  }catch(e){add('SELECT clientes → '+e.message,false);}
+  // Test SELECT pagos
   try{
-    const {data,error}=await sb.from('pagos').select('*').limit(1);
-    if(error)add(`SELECT pagos → Error: ${error.message}`,false);
-    else add(`SELECT pagos → OK`,true);
-  }catch(e){add(`SELECT pagos → ${e.message}`,false);}
-  // Test 3: INSERT + DELETE
+    await sb.get('pagos','limit=1');
+    add('SELECT pagos → OK',true);
+  }catch(e){add('SELECT pagos → '+e.message,false);}
+  // Test INSERT + DELETE
   try{
-    const {data,error}=await sb.from('clientes').insert({nombre:'__DIAG__',honorarios:1,meses_adeudo:0}).select();
-    if(error){add(`INSERT → Error: ${error.message}`,false);}
-    else{
-      const tid=data[0]?.id;
-      add(`INSERT → OK (id: ${tid?.slice(0,8)})`,true);
-      const {error:de}=await sb.from('clientes').delete().eq('id',tid);
-      if(de)add(`DELETE → Error: ${de.message}`,false);
-      else add(`DELETE → OK`,true);
-    }
-  }catch(e){add(`INSERT/DELETE → ${e.message}`,false);}
+    const data=await sb.insert('clientes',{nombre:'__DIAG__',honorarios:1,meses_adeudo:0});
+    const tid=data[0]?.id;
+    add('INSERT → OK (id: '+tid.slice(0,8)+')',true);
+    try{
+      await sb.delete('clientes','id',tid);
+      add('DELETE → OK',true);
+    }catch(e){add('DELETE → '+e.message+' (falta política RLS para DELETE)',false);}
+  }catch(e){add('INSERT → '+e.message,false);}
   add('─── Fin del diagnóstico ───');
 }
 async function openDiag(){openModal('modal-diag');await runDiag();}

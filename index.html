@@ -690,13 +690,12 @@ function openDetalle(id){
   document.getElementById('btn-pagar-cliente').onclick=()=>{closeModal('modal-detalle');openPago(id);};
   document.getElementById('btn-pagar-cliente').style.display=meses>0?'inline-flex':'none';
   document.getElementById('btn-whatsapp-cliente').style.display=c.telefono?'inline-flex':'none';
-  document.getElementById('btn-delete-cliente').style.display=(sesionActual&&sesionActual.rol!=='admin')?'none':'inline-flex';
+  // Delete button visibility is set at login by mostrarApp()
   openModal('modal-detalle');
 }
 function mostrarConfirmDelete(){document.getElementById('delete-confirm-bar').style.display='flex';}
 function cancelarDelete(){document.getElementById('delete-confirm-bar').style.display='none';}
 async function ejecutarDeleteCliente(){
-  if(!sesionActual||sesionActual.rol!=='admin'){toast('⛔ Solo el administrador puede eliminar clientes');return;}
   if(!currentDetailId){toast('Error: no hay cliente seleccionado');return;}
   const id=currentDetailId;
   clientes=clientes.filter(c=>c.id!==id);
@@ -962,7 +961,16 @@ const USUARIOS=[{usuario:'nazario',clave:'DCHERRERA202652',nombre:'Nazario',rol:
 const SESSION_KEY='dch_session',TIMEOUT_MS=30*60*1000,WARNING_MS=25*60*1000;
 let sesionActual=null,sessionTimer=null,warningTimer=null,countdownInt=null;
 function doLogin(){const u=document.getElementById('login-user').value.trim().toLowerCase();const p=document.getElementById('login-pass').value;const found=USUARIOS.find(x=>x.usuario===u&&x.clave===p);if(!found){const err=document.getElementById('login-error');err.style.display='block';document.getElementById('login-pass').value='';setTimeout(()=>err.style.display='none',3000);return;}sesionActual={...found,inicio:Date.now()};localStorage.setItem(SESSION_KEY,JSON.stringify(sesionActual));mostrarApp();}
-function mostrarApp(){document.getElementById('login-screen').classList.add('hidden');document.getElementById('sb-nombre').textContent=sesionActual.nombre;document.getElementById('sb-avatar').textContent=sesionActual.nombre[0].toUpperCase();document.getElementById('sb-role-badge').innerHTML=`<span class="role-badge ${sesionActual.rol==='admin'?'role-admin':'role-empleado'}">${sesionActual.rol==='admin'?'★ Admin':'● Empleado'}</span>`;iniciarTimerSesion();}
+function mostrarApp(){
+  document.getElementById('login-screen').classList.add('hidden');
+  document.getElementById('sb-nombre').textContent=sesionActual.nombre;
+  document.getElementById('sb-avatar').textContent=sesionActual.nombre[0].toUpperCase();
+  document.getElementById('sb-role-badge').innerHTML=`<span class="role-badge ${sesionActual.rol==='admin'?'role-admin':'role-empleado'}">${sesionActual.rol==='admin'?'★ Admin':'● Empleado'}</span>`;
+  // Set delete button visibility based on role — done once at login
+  const esAdmin=sesionActual.rol==='admin';
+  document.getElementById('btn-delete-cliente').style.display=esAdmin?'inline-flex':'none';
+  iniciarTimerSesion();
+}
 function iniciarTimerSesion(){clearTimeout(sessionTimer);clearTimeout(warningTimer);clearInterval(countdownInt);warningTimer=setTimeout(()=>{document.getElementById('session-warning').style.display='flex';let s=5*60;clearInterval(countdownInt);countdownInt=setInterval(()=>{s--;const el=document.getElementById('session-countdown');if(el)el.textContent=`${Math.floor(s/60)}:${(s%60).toString().padStart(2,'0')}`;if(s<=0){clearInterval(countdownInt);cerrarSesion();}},1000);},WARNING_MS);sessionTimer=setTimeout(()=>cerrarSesion(),TIMEOUT_MS);}
 function renovarSesion(){document.getElementById('session-warning').style.display='none';clearInterval(countdownInt);iniciarTimerSesion();}
 ['click','keydown','mousemove','touchstart'].forEach(evt=>{document.addEventListener(evt,()=>{if(sesionActual){clearTimeout(sessionTimer);clearTimeout(warningTimer);clearInterval(countdownInt);document.getElementById('session-warning').style.display='none';iniciarTimerSesion();}},{passive:true});});

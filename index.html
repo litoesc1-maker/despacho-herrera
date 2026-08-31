@@ -547,7 +547,15 @@ function showSync(msg,done=false,err=false){
 }
 let modoOffline=false;
 async function loadData(){
-  showSync('Conectando con Supabase...');
+  // 1. Load from localStorage immediately (instant)
+  try{clientes=JSON.parse(localStorage.getItem('dch_v2')||'[]');}catch{clientes=[];}
+  try{extras=JSON.parse(localStorage.getItem('dch_ex')||'[]');}catch{extras=[];}
+  modoOffline=true;
+  // 2. Try to sync from Supabase in background
+  syncFromSupabase();
+}
+async function syncFromSupabase(){
+  showSync('Sincronizando...');
   try{
     const[cRows,pRows,eRows]=await Promise.all([
       sb.get('clientes','order=nombre'),
@@ -557,16 +565,15 @@ async function loadData(){
     clientes=cRows.map(r=>rowToCliente(r,pRows));
     extras=eRows.map(r=>({id:r.id,nombre:r.nombre,telefono:r.telefono||'',email:r.email||'',tipo:r.tipo||'',descripcion:r.descripcion||'',monto:parseFloat(r.monto)||0,fecha:r.fecha||'',estado:r.estado||'pagado'}));
     modoOffline=false;
-    showSync('Sincronizado con nube ✓',true);
-    document.getElementById('offline-bar').style.display='none';
     localStorage.setItem('dch_v2',JSON.stringify(clientes));
     localStorage.setItem('dch_ex',JSON.stringify(extras));
+    showSync('Nube sincronizada ✓',true);
+    document.getElementById('offline-bar').style.display='none';
+    renderDashboard();renderClientes();renderCobranza();renderExtras();
   }catch(e){
-    console.error('Supabase no disponible:',e.message);
+    console.warn('Supabase no disponible:',e.message);
     modoOffline=true;
-    try{clientes=JSON.parse(localStorage.getItem('dch_v2')||'[]');}catch{clientes=[];}
-    try{extras=JSON.parse(localStorage.getItem('dch_ex')||'[]');}catch{extras=[];}
-    showSync('Sin conexión — modo local',false,true);
+    showSync('',true);
     document.getElementById('offline-bar').style.display='flex';
   }
 }
@@ -577,6 +584,10 @@ async function reconectar(){
 }
 function saveData(){localStorage.setItem('dch_v2',JSON.stringify(clientes));}
 function saveExtrasData(){localStorage.setItem('dch_ex',JSON.stringify(extras));}
+async function sbBgSync(fn){
+  // Fire-and-forget background Supabase sync
+  try{await fn();}catch(e){console.warn('BG sync failed:',e.message);}
+}
 function genId(){return crypto.randomUUID?crypto.randomUUID():Date.now().toString(36)+Math.random().toString(36).slice(2,8);}
 function fmt(n){return'$'+Number(n).toLocaleString('es-MX');}
 function getMesesAdeudo(c){return c.mesesAdeudo||0;}
@@ -725,8 +736,8 @@ async function ejecutarDeleteCliente(){
   showSync('Eliminando...');
   renderDashboard();renderClientes();renderCobranza();
   toast('Cliente eliminado ✓');
-  if(!modoOffline){try{await sbDeleteCliente(id);showSync('Eliminado en nube ✓',true);}
-  catch(e){console.error('Delete SB error:',e);showSync('Eliminado local (sin nube)',false,true);modoOffline=true;document.getElementById('offline-bar').style.display='flex';}}else{showSync('Eliminado local ✓',true);}
+  showSync('Eliminado ✓',true);
+  sbBgSync(async()=>{await sbDeleteCliente(id);});
 }
 function openAddClient(){
   editingId=null;document.getElementById('modal-cliente-title').textContent='Agregar cliente';
@@ -759,8 +770,8 @@ async function saveCliente(){
   let cliente;
   if(editingId){const idx=clientes.findIndex(c=>c.id===editingId);if(idx>-1){clientes[idx]={...clientes[idx],...campos};cliente=clientes[idx];}toast('Cliente actualizado ✓');}
   else{cliente={id:genId(),...campos,pagos:[],fechaRegistro:new Date().toISOString()};clientes.push(cliente);toast('Cliente agregado ✓');}
-  saveData();showSync('Guardando...');
-  if(!modoOffline){try{await sbUpsertCliente(cliente);showSync('Guardado en nube ✓',true);}catch(e){console.error(e);showSync('Guardado local (sin nube)',false,true);modoOffline=true;document.getElementById('offline-bar').style.display='flex';}}else{showSync('Guardado local ✓',true);}
+  saveData();showSync('Guardado ✓',true);
+  sbBgSync(async()=>{await sbUpsertCliente(cliente);});
   closeModal('modal-cliente');renderDashboard();renderClientes();renderCobranza();
 }
 function openAddPagoExtra(){
@@ -777,8 +788,8 @@ async function confirmarPagoExtra(){
   const fecha=document.getElementById('pe-fecha').value||new Date().toISOString().slice(0,10);
   if(!c.pagos)c.pagos=[];const p={id:genId(),fecha,monto,descripcion:desc||tipo,tipo,estado:'pagado'};
   c.pagos.push(p);saveData();closeModal('modal-pago-extra');toast(`Pago de ${fmt(monto)} añadido ✓`);
-  renderHistorialEdit(c);showSync('Guardando...');
-  if(!modoOffline){try{await sbUpsertPago(p,c.id);showSync('Guardado en nube ✓',true);}catch(e){console.error(e);showSync('Local (sin nube)',false,true);modoOffline=true;document.getElementById('offline-bar').style.display='flex';}}else{showSync('Guardado local ✓',true);}
+  renderHistorialEdit(c);
+  sbBgSync(async()=>{await sbUpsertPago(p,c.id);});
   renderDashboard();renderClientes();renderCobranza();
 }
 function openServicioCliente(id){
@@ -795,8 +806,8 @@ async function guardarServicioCliente(){
   const fecha=document.getElementById('sc-fecha').value||new Date().toISOString().slice(0,10);
   const estado=document.getElementById('sc-estado').value;
   if(!c.pagos)c.pagos=[];const p={id:genId(),fecha,monto,tipo,estado,descripcion:desc||tipo};
-  c.pagos.push(p);saveData();showSync('Guardando...');
-  if(!modoOffline){try{await sbUpsertPago(p,c.id);showSync('Guardado en nube ✓',true);}catch(e){console.error(e);showSync('Local (sin nube)',false,true);modoOffline=true;document.getElementById('offline-bar').style.display='flex';}}else{showSync('Guardado local ✓',true);}
+  c.pagos.push(p);saveData();
+  sbBgSync(async()=>{await sbUpsertPago(p,c.id);});
   closeModal('modal-servicio-cliente');toast(`Servicio "${tipo}" añadido ✓`);
   openDetalle(currentDetailId);renderDashboard();renderClientes();renderCobranza();
 }
@@ -844,11 +855,13 @@ async function confirmarPago(){
     nuevoPago={id:genId(),fecha,meses:mesesPago,monto,tipo:'Honorarios mensuales',descripcion:`Honorarios ${mesesPago} mes${mesesPago!==1?'es':''}`,estado:'pagado'};
     c.pagos.push(nuevoPago);c.mesesAdeudo=Math.max(0,mesesAct-mesesPago);
     saveData();closeModal('modal-pago');toast(`Honorarios ${fmt(monto)} registrados ✓`);
-    showSync('Guardando...');if(!modoOffline){try{await Promise.all([sbUpsertCliente(c),sbUpsertPago(nuevoPago,c.id)]);showSync('Guardado en nube ✓',true);}catch(e){console.error(e);showSync('Guardado local (sin nube)',false,true);modoOffline=true;document.getElementById('offline-bar').style.display='flex';}}else{showSync('Guardado local ✓',true);}
+    showSync('Pago registrado ✓',true);
+    sbBgSync(async()=>{await Promise.all([sbUpsertCliente(c),sbUpsertPago(nuevoPago,c.id)]);});
   }else{
     if(selectedPendienteId){
       const pago=(c.pagos||[]).find(p=>p.id===selectedPendienteId);
-      if(pago){pago.estado='pagado';pago.fechaPago=fecha;saveData();closeModal('modal-pago');toast(`Pago de ${fmt(pago.monto)} registrado ✓`);showSync('Guardando...');try{await sbUpsertPago(pago,c.id);showSync('Guardado ✓',true);}catch(e){console.error(e);}}
+      if(pago){pago.estado='pagado';pago.fechaPago=fecha;saveData();closeModal('modal-pago');toast(`Pago de ${fmt(pago.monto)} registrado ✓`);
+      sbBgSync(async()=>{await sbUpsertPago(pago,c.id);});}
     }else{
       const monto=parseFloat(document.getElementById('ps-monto').value);
       if(!monto||monto<=0){toast('Ingresa el monto del cobro');return;}
@@ -857,7 +870,7 @@ async function confirmarPago(){
       if(!c.pagos)c.pagos=[];
       nuevoPago={id:genId(),fecha:fechaS,monto,tipo,descripcion:desc||tipo,estado:'pagado'};
       c.pagos.push(nuevoPago);saveData();closeModal('modal-pago');toast(`${tipo}: ${fmt(monto)} registrado ✓`);
-      showSync('Guardando...');try{await sbUpsertPago(nuevoPago,c.id);showSync('Guardado ✓',true);}catch(e){console.error(e);}
+      sbBgSync(async()=>{await sbUpsertPago(nuevoPago,c.id);});
     }
   }
   renderDashboard();renderClientes();renderCobranza();if(currentDetailId)openDetalle(currentDetailId);
@@ -884,16 +897,18 @@ async function saveExtra(){
   let extra;
   if(editingExtraId){const idx=extras.findIndex(x=>x.id===editingExtraId);if(idx>-1){extras[idx]={...extras[idx],...data};extra=extras[idx];}toast('Servicio actualizado ✓');}
   else{extra={id:genId(),...data};extras.push(extra);toast('Servicio registrado ✓');}
-  saveExtrasData();showSync('Guardando...');if(!modoOffline){try{await sbUpsertExtra(extra);showSync('Guardado en nube ✓',true);}catch(e){console.error(e);showSync('Local (sin nube)',false,true);modoOffline=true;document.getElementById('offline-bar').style.display='flex';}}else{showSync('Guardado local ✓',true);}
+  saveExtrasData();showSync('Guardado ✓',true);
+  sbBgSync(async()=>{await sbUpsertExtra(extra);});
   closeModal('modal-extra');renderExtras();
 }
 async function deleteExtra(id){
   if(!confirm('¿Eliminar este registro?'))return;extras=extras.filter(x=>x.id!==id);saveExtrasData();showSync('Eliminando...');
-  if(!modoOffline){try{await sbDeleteExtra(id);showSync('Eliminado en nube ✓',true);}catch(e){console.error(e);showSync('Local (sin nube)',false,true);}}else{showSync('Eliminado local ✓',true);}renderExtras();toast('Registro eliminado');
+  showSync('Eliminado ✓',true);
+  sbBgSync(async()=>{await sbDeleteExtra(id);});renderExtras();toast('Registro eliminado');
 }
 async function marcarExtraPagado(id){
-  const x=extras.find(e=>e.id===id);if(!x)return;x.estado='pagado';saveExtrasData();showSync('Guardando...');
-  if(!modoOffline){try{await sbUpsertExtra(x);showSync('Cobrado en nube ✓',true);}catch(e){console.error(e);showSync('Local (sin nube)',false,true);}}else{showSync('Cobrado local ✓',true);}renderExtras();toast('Servicio marcado como pagado ✓');
+  const x=extras.find(e=>e.id===id);if(!x)return;x.estado='pagado';saveExtrasData();showSync('Cobrado ✓',true);
+  sbBgSync(async()=>{await sbUpsertExtra(x);});renderExtras();toast('Servicio marcado como pagado ✓');
 }
 function setExtraFilter(f,el){extraFilterStatus=f;document.querySelectorAll('#page-extras .ftab').forEach(t=>t.classList.remove('active'));el.classList.add('active');renderExtras();}
 function renderExtras(){

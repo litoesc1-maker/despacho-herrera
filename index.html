@@ -715,12 +715,13 @@ function openDetalle(id){
   document.getElementById('btn-pagar-cliente').onclick=()=>{closeModal('modal-detalle');openPago(id);};
   document.getElementById('btn-pagar-cliente').style.display=meses>0?'inline-flex':'none';
   document.getElementById('btn-whatsapp-cliente').style.display=c.telefono?'inline-flex':'none';
-  // Show delete button only for admin
+  // Show delete button only for admin — restore session if needed
+  if(!sesionActual){try{const s=JSON.parse(localStorage.getItem('dch_session')||'null');if(s)sesionActual=s;}catch{}}
   const delBtn=document.getElementById('btn-delete-cliente');
   if(delBtn){
     const isAdm=sesionActual&&sesionActual.rol==='admin';
     delBtn.style.display=isAdm?'inline-flex':'none';
-    console.log('Delete btn: rol='+( sesionActual?sesionActual.rol:'null')+' display='+delBtn.style.display);
+    console.log('Delete btn - sesionActual:',sesionActual,'isAdm:',isAdm);
   }
   openModal('modal-detalle');
 }
@@ -1004,6 +1005,8 @@ function mostrarApp(){
   // Admin class on body controls delete button via CSS
   if(sesionActual.rol==='admin'){document.body.classList.add('is-admin');}
   else{document.body.classList.remove('is-admin');}
+  document.getElementById('topDate').dataset.rol=sesionActual.rol;
+  console.log('Sesion iniciada:',sesionActual.nombre,'rol:',sesionActual.rol);
   iniciarTimerSesion();
 }
 function iniciarTimerSesion(){clearTimeout(sessionTimer);clearTimeout(warningTimer);clearInterval(countdownInt);warningTimer=setTimeout(()=>{document.getElementById('session-warning').style.display='flex';let s=5*60;clearInterval(countdownInt);countdownInt=setInterval(()=>{s--;const el=document.getElementById('session-countdown');if(el)el.textContent=`${Math.floor(s/60)}:${(s%60).toString().padStart(2,'0')}`;if(s<=0){clearInterval(countdownInt);cerrarSesion();}},1000);},WARNING_MS);sessionTimer=setTimeout(()=>cerrarSesion(),TIMEOUT_MS);}

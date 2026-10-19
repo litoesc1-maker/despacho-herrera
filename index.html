@@ -167,7 +167,7 @@ tbody tr:last-child td{border-bottom:none;}tbody tr:hover{background:#fafbff;}
 
 
 <div id="offline-bar" style="display:none;position:fixed;top:0;left:0;right:0;z-index:7999;background:#1e293b;color:#f8fafc;padding:10px 24px;font-size:13px;font-weight:600;align-items:center;justify-content:space-between;gap:12px;">
-  <span>⚠️ Supabase no disponible — trabajando en <strong>modo local</strong>. Los cambios se guardan en este dispositivo.</span>
+  <span>📱 Modo local activo — todos los cambios se guardan en este dispositivo.</span>
   <div style="display:flex;gap:8px;align-items:center;flex-shrink:0;">
     <a href="https://supabase.com/dashboard/project/twppflynayfjqvqphazo" target="_blank" style="color:#60a5fa;font-size:12px;text-decoration:underline;">Activar proyecto</a>
     <button onclick="reconectar()" style="background:#2563eb;color:#fff;border:none;padding:5px 14px;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;">🔄 Reconectar</button>
@@ -555,7 +555,6 @@ async function loadData(){
   syncFromSupabase();
 }
 async function syncFromSupabase(){
-  showSync('Sincronizando...');
   try{
     const[cRows,pRows,eRows]=await Promise.all([
       sb.get('clientes','order=nombre'),
@@ -571,9 +570,8 @@ async function syncFromSupabase(){
     document.getElementById('offline-bar').style.display='none';
     renderDashboard();renderClientes();renderCobranza();renderExtras();
   }catch(e){
-    console.warn('Supabase no disponible:',e.message);
+    // Supabase unavailable — app works fine with localStorage
     modoOffline=true;
-    showSync('',true);
     document.getElementById('offline-bar').style.display='flex';
   }
 }
@@ -585,8 +583,8 @@ async function reconectar(){
 function saveData(){localStorage.setItem('dch_v2',JSON.stringify(clientes));}
 function saveExtrasData(){localStorage.setItem('dch_ex',JSON.stringify(extras));}
 async function sbBgSync(fn){
-  // Fire-and-forget background Supabase sync
-  try{await fn();}catch(e){console.warn('BG sync failed:',e.message);}
+  // Fire-and-forget background Supabase sync — completely silent
+  try{await fn();}catch(e){}
 }
 function genId(){return crypto.randomUUID?crypto.randomUUID():Date.now().toString(36)+Math.random().toString(36).slice(2,8);}
 function fmt(n){return'$'+Number(n).toLocaleString('es-MX');}

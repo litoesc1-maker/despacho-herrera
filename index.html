@@ -715,19 +715,18 @@ function openDetalle(id){
   document.getElementById('btn-pagar-cliente').onclick=()=>{closeModal('modal-detalle');openPago(id);};
   document.getElementById('btn-pagar-cliente').style.display=meses>0?'inline-flex':'none';
   document.getElementById('btn-whatsapp-cliente').style.display=c.telefono?'inline-flex':'none';
-  // Show delete button only for admin — restore session if needed
-  if(!sesionActual){try{const s=JSON.parse(localStorage.getItem('dch_session')||'null');if(s)sesionActual=s;}catch{}}
-  const delBtn=document.getElementById('btn-delete-cliente');
-  if(delBtn){
-    const isAdm=sesionActual&&sesionActual.rol==='admin';
-    delBtn.style.display=isAdm?'inline-flex':'none';
-    console.log('Delete btn - sesionActual:',sesionActual,'isAdm:',isAdm);
-  }
   openModal('modal-detalle');
 }
 function mostrarConfirmDelete(){document.getElementById('delete-confirm-bar').style.display='flex';}
 function cancelarDelete(){document.getElementById('delete-confirm-bar').style.display='none';}
 async function ejecutarDeleteCliente(){
+  // Restore session if needed
+  if(!sesionActual){try{const s=JSON.parse(localStorage.getItem('dch_session')||'null');if(s)sesionActual=s;}catch{}}
+  if(!sesionActual||sesionActual.rol!=='admin'){
+    toast('⛔ Solo el administrador puede eliminar clientes');
+    document.getElementById('delete-confirm-bar').style.display='none';
+    return;
+  }
   if(!currentDetailId){toast('Error: no hay cliente seleccionado');return;}
   const id=currentDetailId;
   clientes=clientes.filter(c=>c.id!==id);

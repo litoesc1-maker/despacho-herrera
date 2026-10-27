@@ -222,7 +222,7 @@ tbody tr:last-child td{border-bottom:none;}tbody tr:hover{background:#fafbff;}
 
 <main class="main">
   <div class="topbar">
-    <div><div class="topbar-title" id="pageTitle">Resumen General</div><div class="topbar-date" id="topDate"></div></div>
+    <div><div class="topbar-title" id="pageTitle">Resumen General</div><div style="display:flex;align-items:center;gap:8px;"><div class="topbar-date" id="topDate"></div><div id="sb-status" title="Estado de sincronización" style="width:8px;height:8px;border-radius:50%;background:#e5e7eb;flex-shrink:0;"></div></div></div>
     <div><button class="btn btn-outline btn-sm" onclick="openDiag()" style="font-size:11px;padding:5px 10px;" title="Diagnóstico Supabase">🔧</button> <button class="btn btn-primary" onclick="openAddClient()"><svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Agregar cliente</button></div>
   </div>
 
@@ -566,17 +566,18 @@ async function syncFromSupabase(){
     modoOffline=false;
     localStorage.setItem('dch_v2',JSON.stringify(clientes));
     localStorage.setItem('dch_ex',JSON.stringify(extras));
+    const dot=document.getElementById('sb-status');
+    if(dot){dot.style.background='#22c55e';dot.title='Sincronizado con Supabase ✓';}
     showSync('Nube sincronizada ✓',true);
-    document.getElementById('offline-bar').style.display='none';
+    // offline-bar hidden
     renderDashboard();renderClientes();renderCobranza();renderExtras();
   }catch(e){
-    // Supabase unavailable — app works fine with localStorage
+    // Supabase unavailable — app works fine with localStorage (silent)
     modoOffline=true;
-    document.getElementById('offline-bar').style.display='flex';
   }
 }
 async function reconectar(){
-  document.getElementById('offline-bar').style.display='none';
+  // offline-bar hidden
   await loadData();
   renderDashboard();renderClientes();renderCobranza();renderExtras();
 }
@@ -1041,7 +1042,18 @@ async function runDiag(){
 }
 async function openDiag(){openModal('modal-diag');await runDiag();}
 
-async function init(){const d=new Date();document.getElementById('topDate').textContent=d.toLocaleDateString('es-MX',{weekday:'long',year:'numeric',month:'long',day:'numeric'});if(checkSession())mostrarApp();await loadData();renderDashboard();}
+async function init(){
+  const d=new Date();
+  document.getElementById('topDate').textContent=d.toLocaleDateString('es-MX',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+  if(checkSession())mostrarApp();
+  await loadData();
+  renderDashboard();
+  if(modoOffline){
+    let n=0;const t=setInterval(async()=>{
+      n++;try{await sb.get('clientes','limit=1');clearInterval(t);syncFromSupabase();}catch(e){if(n>=4)clearInterval(t);}
+    },30000);
+  }
+}
 init();
 
 </script>

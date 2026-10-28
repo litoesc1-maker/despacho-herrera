@@ -451,12 +451,9 @@ tbody tr:last-child td{border-bottom:none;}tbody tr:hover{background:#fafbff;}
   <div class="chat-window" id="chat-window">
     <div class="chat-header">
       <div class="chat-header-avatar">🤖</div>
-      <div><div class="chat-header-name">Asistente Herrera</div><div class="chat-header-sub" id="chat-mode-label">Modo: Interno</div></div>
+      <div><div class="chat-header-name">Asistente Herrera</div><div class="chat-header-sub">Consultas, cobros y reportes internos</div></div>
       <div style="margin-left:auto;display:flex;align-items:center;gap:8px;">
-        <div style="display:flex;background:rgba(255,255,255,.15);border-radius:20px;padding:2px;">
-          <div id="btn-modo-interno" onclick="setModo('interno')" style="padding:3px 10px;border-radius:18px;font-size:10px;font-weight:700;cursor:pointer;color:#fff;background:rgba(255,255,255,.25);">Interno</div>
-          <div id="btn-modo-cliente" onclick="setModo('cliente')" style="padding:3px 10px;border-radius:18px;font-size:10px;font-weight:700;cursor:pointer;color:rgba(255,255,255,.65);">Cliente</div>
-        </div>
+        <span style="font-size:10px;background:rgba(37,99,235,.4);color:#93c5fd;padding:2px 8px;border-radius:20px;font-weight:700;">INTERNO</span>
         <button class="chat-close" onclick="toggleChat()">✕</button>
       </div>
     </div>
@@ -919,7 +916,8 @@ async function confirmarPago(){
   }else{
     if(selectedPendienteId){
       const pago=(c.pagos||[]).find(p=>p.id===selectedPendienteId);
-      if(pago){pago.estado='pagado';pago.fechaPago=fecha;saveData();closeModal('modal-pago');toast(`Pago de ${fmt(pago.monto)} registrado ✓`);
+      if(pago){pago.estado='pagado';pago.fechaPago=fecha;saveData();closeModal('modal-pago');
+      showSync('Cobrado ✓',true);toast(`✅ ${fmt(pago.monto)} cobrado — ${c.nombre}`);
       sbBgSync(async()=>{await sbUpsertPago(pago,c.id);});}
     }else{
       const monto=parseFloat(document.getElementById('ps-monto').value);
@@ -1042,13 +1040,84 @@ function seleccionarTemplate(idx){const c=clientes.find(x=>x.id===waClienteId);i
 function abrirWhatsApp(){const c=clientes.find(x=>x.id===waClienteId);if(!c||!c.telefono){toast('Sin número');return;}const msg=document.getElementById('wa-mensaje').value.trim();if(!msg){toast('Escribe o selecciona un mensaje');return;}let tel=c.telefono.replace(/[\s\-\(\)]/g,'');if(!tel.startsWith('+')&&!tel.startsWith('52'))tel='52'+tel;tel=tel.replace('+','');window.open(`https://wa.me/${tel}?text=${encodeURIComponent(msg)}`,'_blank');closeModal('modal-whatsapp');}
 
 let chatHistory=[],chatModo='interno',chatIniciado=false;
-function toggleChat(){const win=document.getElementById('chat-window');win.classList.toggle('open');if(win.classList.contains('open')&&!chatIniciado){chatIniciado=true;iniciarChat();}}
-function setModo(modo){chatModo=modo;chatHistory=[];document.getElementById('chat-messages').innerHTML='';['btn-modo-interno','btn-modo-cliente'].forEach(id=>{const isModo=id.includes(modo);document.getElementById(id).style.background=isModo?'rgba(255,255,255,.25)':'transparent';document.getElementById(id).style.color=isModo?'#fff':'rgba(255,255,255,.65)';});document.getElementById('chat-mode-label').textContent='Modo: '+(modo==='interno'?'Interno':'Cliente');iniciarChat();}
-function iniciarChat(){document.getElementById('chat-messages').innerHTML='';chatHistory=[];addBotMsg(chatModo==='interno'?'¡Hola! Soy el asistente interno. Pregúntame sobre cualquier cliente.':'Bienvenido al *Despacho Contable "Herrera"*. Indíqueme su *nombre* o *RFC* para consultar su estado de cuenta.');}
+function toggleChat(){
+  const win=document.getElementById('chat-window');
+  win.classList.toggle('open');
+  if(win.classList.contains('open')){
+    // Always refresh greeting with latest data
+    iniciarChat();
+    chatIniciado=true;
+  }
+}
+function setModo(modo){chatModo='interno';chatHistory=[];document.getElementById('chat-messages').innerHTML='';iniciarChat();}
+function iniciarChat(){
+  document.getElementById('chat-messages').innerHTML='';
+  chatHistory=[];
+  const mes=new Date().toLocaleDateString('es-MX',{month:'long',year:'numeric'});
+  const totalAdeudo=clientes.reduce((s,c)=>s+getMesesAdeudo(c)*c.honorarios,0);
+  const morosos=clientes.filter(c=>getMesesAdeudo(c)>0).length;
+  const pendServ=clientes.flatMap(c=>(c.pagos||[]).filter(p=>p.estado==='pendiente')).length;
+  addBotMsg(`¡Hola! Soy el asistente interno del *Despacho Contable "Herrera"*.
+
+📊 *Resumen ${mes}:*
+• ${clientes.length} clientes registrados
+• ${morosos} con adeudo de honorarios ($${totalAdeudo.toLocaleString('es-MX')})
+• ${pendServ} servicio${pendServ!==1?'s':''} pendiente${pendServ!==1?'s':''} de cobro
+
+Puedes preguntarme:
+• *"¿Quién debe?"*
+• *"Reporte del mes"*
+• *"Pendientes de cobro"*
+• *"Estado de [nombre cliente]"*`);
+}
 function addBotMsg(text,typing=false){const msgs=document.getElementById('chat-messages');if(typing){const el=document.createElement('div');el.className='chat-msg bot';el.id='typing-ind';el.innerHTML='<div class="chat-avatar-sm">H</div><div class="chat-typing"><div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div></div>';msgs.appendChild(el);msgs.scrollTop=msgs.scrollHeight;return;}const el=document.createElement('div');el.className='chat-msg bot';const hora=new Date().toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'});el.innerHTML=`<div class="chat-avatar-sm">H</div><div><div class="chat-bubble">${text.replace(/\*(.*?)\*/g,'<strong>$1</strong>').replace(/\n/g,'<br>')}</div><div class="chat-time">${hora}</div></div>`;msgs.appendChild(el);msgs.scrollTop=msgs.scrollHeight;}
 function addUserMsg(text){const msgs=document.getElementById('chat-messages');const hora=new Date().toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'});const el=document.createElement('div');el.className='chat-msg user';el.innerHTML=`<div><div class="chat-bubble">${text}</div><div class="chat-time">${hora}</div></div>`;msgs.appendChild(el);msgs.scrollTop=msgs.scrollHeight;}
 function removeTyping(){const t=document.getElementById('typing-ind');if(t)t.remove();}
-function buildContexto(){const lista=clientes.map(c=>`- ${c.nombre} | RFC:${c.rfc||'N/A'} | Tel:${c.telefono||'N/A'} | Honorarios:$${c.honorarios}/mes | Meses adeudados:${getMesesAdeudo(c)} | Adeudo:$${getMesesAdeudo(c)*c.honorarios}`).join('\n');if(chatModo==='interno')return`Eres el asistente interno del Despacho Contable "Herrera". Responde preguntas sobre los ${clientes.length} clientes.\n\nCLIENTES:\n${lista||'Sin clientes.'}`;return`Eres el asistente virtual del Despacho Contable "Herrera". El cliente pregunta por su estado. Muestra SOLO su información.\n\nCLIENTES:\n${lista||'Sin clientes.'}`;}
+function buildContexto(){
+  const hoy=new Date().toLocaleDateString('es-MX',{day:'numeric',month:'long',year:'numeric'});
+  const mesActual=new Date().toISOString().slice(0,7);
+  // Build rich client list
+  const listaClientes=clientes.map(c=>{
+    const meses=getMesesAdeudo(c);
+    const pagos=(c.pagos||[]);
+    const pendServ=pagos.filter(p=>p.estado==='pendiente');
+    const ultimoPago=pagos.filter(p=>p.estado==='pagado').sort((a,b)=>(b.fecha||'').localeCompare(a.fecha||'')).slice(0,1)[0];
+    const cobradoEste=pagos.filter(p=>p.fecha&&p.fecha.startsWith(mesActual)&&p.estado==='pagado').reduce((s,p)=>s+p.monto,0);
+    return `• ${c.nombre} | RFC:${c.rfc||'N/A'} | Tel:${c.telefono||'N/A'} | Servicio:${c.servicio||'N/A'} | Honorarios:$${c.honorarios}/mes | Meses adeudados:${meses} | Adeudo honorarios:$${meses*c.honorarios}${pendServ.length>0?` | Servicios pendientes:${pendServ.length} por $${pendServ.reduce((s,p)=>s+p.monto,0).toLocaleString('es-MX')}`:' | Sin servicios pendientes'}${ultimoPago?` | Último pago:${ultimoPago.fecha} $${ultimoPago.monto} (${ultimoPago.descripcion||ultimoPago.tipo})`:''}${cobradoEste>0?` | Cobrado este mes:$${cobradoEste}`:''}`;
+  }).join('\n');
+  // Build extras summary
+  const extrasPend=extras.filter(x=>x.estado==='pendiente');
+  const extrasCob=extras.filter(x=>x.estado!=='pendiente');
+  const listaExtras=extras.length>0?extras.slice(0,10).map(x=>`• ${x.nombre} | ${x.tipo} | ${x.descripcion||''} | $${x.monto} | ${x.estado==='pendiente'?'PENDIENTE':'Pagado'} | ${x.fecha||''}`).join('\n'):'Sin servicios extra.';
+  // Stats
+  const totalAdeudo=clientes.reduce((s,c)=>s+getMesesAdeudo(c)*c.honorarios,0);
+  const totalPendServ=clientes.flatMap(c=>(c.pagos||[]).filter(p=>p.estado==='pendiente')).reduce((s,p)=>s+p.monto,0);
+  const cobradoMes=clientes.flatMap(c=>(c.pagos||[]).filter(p=>p.fecha&&p.fecha.startsWith(mesActual)&&p.estado==='pagado')).reduce((s,p)=>s+p.monto,0);
+  const clientesMorosos=clientes.filter(c=>getMesesAdeudo(c)>0).length;
+  return `Eres el asistente interno del Despacho Contable "Herrera". Fecha de hoy: ${hoy}.
+Responde en español de forma clara y profesional. Puedes dar reportes, resúmenes y responder preguntas sobre clientes, cobros y estado financiero.
+
+RESUMEN GENERAL:
+- Total clientes: ${clientes.length}
+- Clientes con adeudo: ${clientesMorosos}
+- Total adeudo honorarios: $${totalAdeudo.toLocaleString('es-MX')}
+- Servicios pendientes de cobro: ${extrasPend.length} extras + ${clientes.flatMap(c=>(c.pagos||[]).filter(p=>p.estado==='pendiente')).length} de clientes = $${(totalPendServ+extrasPend.reduce((s,x)=>s+x.monto,0)).toLocaleString('es-MX')} total
+- Cobrado este mes (honorarios+servicios): $${cobradoMes.toLocaleString('es-MX')}
+
+CLIENTES (${clientes.length} total):
+${listaClientes||'Sin clientes registrados.'}
+
+SERVICIOS EXTRA (últimos 10 de ${extras.length} total):
+${listaExtras}
+
+INSTRUCCIONES:
+- Si preguntan "¿quién debe?" → lista clientes con adeudo ordenados por monto
+- Si preguntan "reporte del mes" → resume cobros del mes actual
+- Si preguntan "pendientes" → lista todos los pagos pendientes con montos
+- Si preguntan por un cliente específico → da todos sus datos: adeudo, historial, pendientes
+- Da montos en formato $X,XXX.XX con separador de miles
+- Sé conciso pero completo`;
+}
 async function sendChat(){const input=document.getElementById('chat-input');const text=input.value.trim();if(!text)return;input.value='';addUserMsg(text);chatHistory.push({role:'user',content:text});addBotMsg('',true);try{const resp=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-6',max_tokens:1000,system:buildContexto(),messages:chatHistory})});const data=await resp.json();removeTyping();const reply=data.content?.[0]?.text||'No pude procesar tu consulta.';chatHistory.push({role:'assistant',content:reply});addBotMsg(reply);}catch(e){removeTyping();addBotMsg('Error al conectar. Intenta de nuevo.');}}
 
 const USUARIOS=[{usuario:'nazario',clave:'DCHERRERA202652',nombre:'Nazario',rol:'admin'},{usuario:'carmen',clave:'DCHERRERA122026',nombre:'Carmen',rol:'empleado'},{usuario:'emmanuel',clave:'DCHERRERA122058',nombre:'Emmanuel',rol:'empleado'}];
